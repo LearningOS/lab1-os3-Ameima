@@ -26,7 +26,7 @@ pub fn init() {
     }
 }
 
-/// timer interrupt enabled
+// 启用时间中断
 pub fn enable_timer_interrupt() {
     unsafe {
         sie::set_stimer();
@@ -45,8 +45,17 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
     match scause.cause() {
         // 请求ecall服务
         Trap::Exception(Exception::UserEnvCall) => {
+
+            // 我们首先修改保存在内核栈上的 Trap 上下文里面 sepc，让其增加 4。
+            // 这是因为我们知道这是一个由 ecall 指令触发的系统调用，
+            // 在进入 Trap 的时候，硬件会将 sepc 设置为这条 ecall 指令所在的地址（因为它是进入 Trap 之前最后一条执行的指令）。
+            // 而在 Trap 返回之后，我们希望应用程序控制流从 ecall 的下一条指令开始执行。
+            // 因此我们只需修改 Trap 上下文里面的 sepc，让它增加 ecall 指令的码长，也即 4 字节。
             cx.sepc += 4;
+
+            // 我们从 Trap 上下文取出作为 syscall ID 的 a7 和系统调用的三个参数 a0~a2 传给 syscall 函数并获取返回值。
             cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+
         }
         // 访问无权限访问的地址
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
