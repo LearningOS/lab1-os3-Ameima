@@ -32,33 +32,46 @@ pub use context::TaskContext;
 /// Most of `TaskManager` are hidden behind the field `inner`, to defer
 /// borrowing checks to runtime. You can see examples on how to use `inner` in
 /// existing functions on `TaskManager`.
+
+
+// 任务表，初始化后本体不变，使用UPSafeCell实现内部可变
 pub struct TaskManager {
-    /// total number of tasks
-    num_app: usize,
+    num_app: usize, // 任务总数
     /// use inner value to get mutable access
-    inner: UPSafeCell<TaskManagerInner>,
+    inner: UPSafeCell<TaskManagerInner>, // 可变部分
 }
 
-/// The task manager inner in 'UPSafeCell'
+// 任务表可变部分
 struct TaskManagerInner {
-    /// task list
-    tasks: [TaskControlBlock; MAX_APP_NUM],
-    /// id of current `Running` task
-    current_task: usize,
+    tasks: [TaskControlBlock; MAX_APP_NUM], // 各个任务的信息
+    current_task: usize, // 当前正在执行哪个任务
 }
 
+// lazy_static! 宏提供了全局变量的运行时初始化功能。
+// 一般情况下，全局变量必须在编译期设置一个初始值，但是有些全局变量依赖于运行期间才能得到的数据作为初始值。
+// 这导致这些全局变量需要在运行时发生变化，即需要重新设置初始值之后才能使用。
+// 如果我们手动实现的话有诸多不便之处，比如需要把这种全局变量声明为 static mut 并衍生出很多 unsafe 代码 。
+// 这种情况下我们可以使用 lazy_static! 宏来帮助我们解决这个问题。
 lazy_static! {
-    /// a `TaskManager` instance through lazy_static!
+
     pub static ref TASK_MANAGER: TaskManager = {
+
+        // 获取应用总数
         let num_app = get_num_app();
+
+        // 构造任务表
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
         }; MAX_APP_NUM];
+
+        // 启动各个任务，初始化
         for (i, t) in tasks.iter_mut().enumerate().take(num_app) {
-            t.task_cx = TaskContext::goto_restore(init_app_cx(i));
+            t.task_cx = TaskContext::goto_restore(init_app_cx(i)); // 初始化
             t.task_status = TaskStatus::Ready;
         }
+
+        // 封装成任务表返回
         TaskManager {
             num_app,
             inner: unsafe {

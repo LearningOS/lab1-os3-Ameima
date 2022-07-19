@@ -10,6 +10,7 @@ pub struct TaskContext {
 }
 
 impl TaskContext {
+    // 初始化函数，任务上下文全填零，创建任务表的时候用
     pub fn zero_init() -> Self {
         Self {
             ra: 0,
@@ -17,6 +18,8 @@ impl TaskContext {
             s: [0; 12],
         }
     }
+
+    
     pub fn goto_restore(kstack_ptr: usize) -> Self {
         extern "C" {
             fn __restore();
