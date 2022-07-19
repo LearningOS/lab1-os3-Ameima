@@ -1,6 +1,7 @@
 // 任务管理使用的结构，保存每个任务的当前状态信息
 
 use super::TaskContext;
+use super::MAX_SYSCALL_NUM;
 
 #[derive(Copy, Clone)]
 // 每个任务的信息

@@ -3,7 +3,7 @@
     .section .data
     .global _num_app
 _num_app:
-    .quad 12
+    .quad 13
     .quad app_0_start
     .quad app_1_start
     .quad app_2_start
@@ -16,7 +16,8 @@ _num_app:
     .quad app_9_start
     .quad app_10_start
     .quad app_11_start
-    .quad app_11_end
+    .quad app_12_start
+    .quad app_12_end
 
     .section .data
     .global app_0_start
@@ -71,33 +72,40 @@ app_6_end:
     .global app_7_start
     .global app_7_end
 app_7_start:
-    .incbin "../user/build/bin/ch3b_sleep.bin"
+    .incbin "../user/build/bin/ch3_taskinfo.bin"
 app_7_end:
 
     .section .data
     .global app_8_start
     .global app_8_end
 app_8_start:
-    .incbin "../user/build/bin/ch3b_sleep1.bin"
+    .incbin "../user/build/bin/ch3b_sleep.bin"
 app_8_end:
 
     .section .data
     .global app_9_start
     .global app_9_end
 app_9_start:
-    .incbin "../user/build/bin/ch3b_yield0.bin"
+    .incbin "../user/build/bin/ch3b_sleep1.bin"
 app_9_end:
 
     .section .data
     .global app_10_start
     .global app_10_end
 app_10_start:
-    .incbin "../user/build/bin/ch3b_yield1.bin"
+    .incbin "../user/build/bin/ch3b_yield0.bin"
 app_10_end:
 
     .section .data
     .global app_11_start
     .global app_11_end
 app_11_start:
-    .incbin "../user/build/bin/ch3b_yield2.bin"
+    .incbin "../user/build/bin/ch3b_yield1.bin"
 app_11_end:
+
+    .section .data
+    .global app_12_start
+    .global app_12_end
+app_12_start:
+    .incbin "../user/build/bin/ch3b_yield2.bin"
+app_12_end:

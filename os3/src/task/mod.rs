@@ -84,7 +84,7 @@ impl TaskManager {
         task0.task_status = TaskStatus::Running;
 
         // 新增：对初次调度时间则进行设置
-        task0.task_first_running_time = Some(get_time_us());
+        task0.task_first_running_time = Some(get_time_us() / 1000);
 
         // 把第一个任务放进下一个要运行的任务中，以供一会儿__switch使用
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
@@ -137,7 +137,7 @@ impl TaskManager {
 
             // 新增：如果没有被调度过，则对初次调度时间则进行设置
             if inner.tasks[next].task_first_running_time == None {
-                inner.tasks[next].task_first_running_time = Some(get_time_us());
+                inner.tasks[next].task_first_running_time = Some(get_time_us() / 1000);
             }
 
             inner.current_task = next;
@@ -165,9 +165,9 @@ impl TaskManager {
 
     // 获取当前应用任务信息
     fn get_task_info(&self) -> TaskInfo {
-        let mut inner = self.inner.exclusive_access();
+        let inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        let time = get_time_us() - inner.tasks[current].task_first_running_time;
+        let time = get_time_us() / 1000 - inner.tasks[current].task_first_running_time.unwrap();
         TaskInfo {
             status: inner.tasks[current].task_status,
             syscall_times: inner.tasks[current].task_syscall_times,

@@ -1,6 +1,6 @@
 // 任务管理相关的系统调用
 
-use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
+use crate::config::MAX_SYSCALL_NUM;
 use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, get_task_info, TaskStatus}; // 新增get_task_info
 use crate::timer::get_time_us;
 
@@ -12,9 +12,9 @@ pub struct TimeVal {
 }
 
 pub struct TaskInfo {
-    status: TaskStatus,
-    syscall_times: [u32; MAX_SYSCALL_NUM],
-    time: usize,
+    pub status: TaskStatus,
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    pub time: usize,
 }
 
 // 任务退出并提交退出代码
@@ -44,6 +44,6 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 
 /// YOUR JOB: Finish sys_task_info to pass testcases
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    *ti = get_task_info();
+    unsafe { *ti = get_task_info(); }
     0
 }

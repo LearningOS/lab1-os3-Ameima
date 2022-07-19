@@ -8,7 +8,7 @@ const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_TASK_INFO: usize = 410;
 
 mod fs; // 字符读写相关的系统调用
-mod process; //文件读写相关的系统调用 
+pub mod process; //文件读写相关的系统调用 
 
 use fs::*;
 use process::*;
