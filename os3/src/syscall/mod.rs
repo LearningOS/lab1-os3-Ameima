@@ -13,10 +13,15 @@ mod process; //文件读写相关的系统调用
 use fs::*;
 use process::*;
 
+use crate::task::update_syscall_times;
+
 // syscall 函数并不会实际处理系统调用，而只是根据 syscall ID 分发到具体的处理函数
 // trap_handler从上下文中取出a7作为syscall_id，取出a0~a2作为参数调用它
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
     // LAB1: You may need to update syscall info here.
+    // 新增：记录系统调用次数
+    update_syscall_times(syscall_id);
+
     match syscall_id {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),

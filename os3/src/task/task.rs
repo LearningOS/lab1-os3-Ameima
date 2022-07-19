@@ -8,6 +8,8 @@ pub struct TaskControlBlock {
     pub task_status: TaskStatus, // 任务状态
     pub task_cx: TaskContext, //任务上下文结构体
     // LAB1: Add whatever you need about the Task.
+    pub task_syscall_times: [u32; MAX_SYSCALL_NUM], // 各种系统调用的次数
+    pub task_first_running_time: Option<usize>, // 任务第一次被调度的时刻
 }
 
 #[derive(Copy, Clone, PartialEq)]

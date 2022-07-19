@@ -6,6 +6,8 @@ mod task;
 use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::syscall::process::TaskInfo; // 新增
+use crate::timer::get_time_us;
 use lazy_static::*;
 pub use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
@@ -40,6 +42,9 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
+            // 新增
+            task_syscall_times: [0; MAX_SYSCALL_NUM],
+            task_first_running_time: None,
         }; MAX_APP_NUM];
 
         // 启动各个任务，初始化到挂起状态
@@ -77,6 +82,10 @@ impl TaskManager {
         let task0 = &mut inner.tasks[0];
         // 状态设置为正在运行
         task0.task_status = TaskStatus::Running;
+
+        // 新增：对初次调度时间则进行设置
+        task0.task_first_running_time = Some(get_time_us());
+
         // 把第一个任务放进下一个要运行的任务中，以供一会儿__switch使用
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
         // 手动清理掉临时变量，因为这个函数没到达底部前就切出去了而且永远不会回来，不能依靠编译器自己清除
@@ -125,6 +134,12 @@ impl TaskManager {
             let mut inner = self.inner.exclusive_access();
             let current = inner.current_task;
             inner.tasks[next].task_status = TaskStatus::Running;
+
+            // 新增：如果没有被调度过，则对初次调度时间则进行设置
+            if inner.tasks[next].task_first_running_time == None {
+                inner.tasks[next].task_first_running_time = Some(get_time_us());
+            }
+
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
@@ -140,6 +155,25 @@ impl TaskManager {
     }
 
     // LAB1: Try to implement your function to update or get task info!
+
+    // 增加对应ID的系统调用计数
+    fn update_syscall_times(&self, syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].task_syscall_times[syscall_id] += 1;
+    }
+
+    // 获取当前应用任务信息
+    fn get_task_info(&self) -> TaskInfo {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let time = get_time_us() - inner.tasks[current].task_first_running_time;
+        TaskInfo {
+            status: inner.tasks[current].task_status,
+            syscall_times: inner.tasks[current].task_syscall_times,
+            time,
+        }
+    }
 }
 
 // 留给main函数调用的接口
@@ -177,3 +211,13 @@ pub fn exit_current_and_run_next() {
 
 // LAB1: Public functions implemented here provide interfaces.
 // You may use TASK_MANAGER member functions to handle requests.
+
+// 增加对应ID的系统调用计数
+pub fn update_syscall_times(syscall_id: usize) {
+    TASK_MANAGER.update_syscall_times(syscall_id);
+}
+
+// 获取当前应用任务信息
+pub fn get_task_info() -> TaskInfo {
+    TASK_MANAGER.get_task_info()
+}
