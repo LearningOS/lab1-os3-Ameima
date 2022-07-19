@@ -17,16 +17,16 @@ impl TrapContext {
         self.x[2] = sp;
     }
 
-    // 初始化应用上下文
+    // 用于在初始化时在该应用的栈构造应用的Trap上下文
     pub fn app_init_context(entry: usize, sp: usize) -> Self {
         let mut sstatus = sstatus::read();
-        sstatus.set_spp(SPP::User);
+        sstatus.set_spp(SPP::User); // 将 sstatus 寄存器的 SPP 字段设置为 User 。
         let mut cx = Self {
             x: [0; 32],
             sstatus,
-            sepc: entry,
+            sepc: entry, // 修改其中的 sepc 寄存器为应用程序入口点 entry
         };
-        cx.set_sp(sp);
-        cx
+        cx.set_sp(sp); // sp 寄存器为我们设定的用户栈指针
+        cx // 返回构造好的上下文
     }
 }

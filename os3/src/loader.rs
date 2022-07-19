@@ -1,6 +1,7 @@
 use crate::config::*;
 use crate::trap::TrapContext;
 
+// 定义内核栈和用户栈结构
 #[repr(align(4096))]
 #[derive(Copy, Clone)]
 struct KernelStack {
@@ -13,6 +14,7 @@ struct UserStack {
     data: [u8; USER_STACK_SIZE],
 }
 
+// 实例化内核栈和用户栈，每个应用都有个独占的内核栈
 static KERNEL_STACK: [KernelStack; MAX_APP_NUM] = [KernelStack {
     data: [0; KERNEL_STACK_SIZE],
 }; MAX_APP_NUM];
@@ -22,20 +24,27 @@ static USER_STACK: [UserStack; MAX_APP_NUM] = [UserStack {
 }; MAX_APP_NUM];
 
 impl KernelStack {
+
+    // 获取初始时的栈顶指针位置
     fn get_sp(&self) -> usize {
+        // 指向栈数组首部的指针加上栈的完整大小，直接就到栈的最底部，也就是初始时的栈顶指针位置
         self.data.as_ptr() as usize + KERNEL_STACK_SIZE
     }
+
+    // 内核栈初始时的压栈
     pub fn push_context(&self, trap_cx: TrapContext) -> usize {
         let trap_cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
         unsafe {
             *trap_cx_ptr = trap_cx;
         }
-        trap_cx_ptr as usize
+        trap_cx_ptr as usize // 返回新栈顶
     }
 }
 
 impl UserStack {
+    // 获取初始时的栈顶指针位置
     fn get_sp(&self) -> usize {
+        // 指向栈数组首部的指针加上栈的完整大小，直接就到栈的最底部，也就是初始时的栈顶指针位置
         self.data.as_ptr() as usize + USER_STACK_SIZE
     }
 }
@@ -91,9 +100,12 @@ pub fn load_apps() {
     }
 }
 
+
+// 在ID对应的应用的内核栈中压入该应用的Trap上下文
 pub fn init_app_cx(app_id: usize) -> usize {
-    KERNEL_STACK[app_id].push_context(TrapContext::app_init_context(
-        get_base_i(app_id),
-        USER_STACK[app_id].get_sp(),
-    ))
+    // 调用ID对应的应用的内核栈的压栈方法，把下面构造的Trap上下文压进去
+    KERNEL_STACK[app_id].push_context(TrapContext::app_init_context( // 构造Trap上下文
+        get_base_i(app_id), // 对应ID应用的加载位置
+        USER_STACK[app_id].get_sp(), // 对应ID应用的用户栈初始栈顶（也就是栈最底部）
+    )) // 返回新栈顶
 }

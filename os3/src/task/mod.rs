@@ -1,14 +1,3 @@
-//! Task management implementation
-//!
-//! Everything about task management, like starting and switching tasks is
-//! implemented here.
-//!
-//! A single global instance of [`TaskManager`] called `TASK_MANAGER` controls
-//! all the tasks in the operating system.
-//!
-//! Be careful when you see [`__switch`]. Control flow around this function
-//! might not be what you expect.
-
 mod context;
 mod switch;
 #[allow(clippy::module_inception)]
@@ -23,21 +12,9 @@ pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
 
-/// The task manager, where all the tasks are managed.
-///
-/// Functions implemented on `TaskManager` deals with all task state transitions
-/// and task context switching. For convenience, you can find wrappers around it
-/// in the module level.
-///
-/// Most of `TaskManager` are hidden behind the field `inner`, to defer
-/// borrowing checks to runtime. You can see examples on how to use `inner` in
-/// existing functions on `TaskManager`.
-
-
 // 任务表，初始化后本体不变，使用UPSafeCell实现内部可变
 pub struct TaskManager {
     num_app: usize, // 任务总数
-    /// use inner value to get mutable access
     inner: UPSafeCell<TaskManagerInner>, // 可变部分
 }
 
@@ -65,9 +42,15 @@ lazy_static! {
             task_status: TaskStatus::UnInit,
         }; MAX_APP_NUM];
 
-        // 启动各个任务，初始化
+        // 启动各个任务，初始化到挂起状态
         for (i, t) in tasks.iter_mut().enumerate().take(num_app) {
-            t.task_cx = TaskContext::goto_restore(init_app_cx(i)); // 初始化
+            // 如果应用是第一次被执行，那内核应该怎么办呢？
+            // 类似构造 Trap 上下文的方法，内核需要在应用的任务控制块上构造一个用于第一次执行的任务上下文。
+            // 我们是在创建 TaskManager 的全局实例 TASK_MANAGER 的时候来进行这个初始化的，就在下面这句。
+            // init_app_cx是压Trap上下文进内核栈，返回新的栈顶
+            // goto_restore是在压Trap上下文进内核栈的基础上，构建任务切换的上下文结构体，不压栈而是直接返回
+            // 这俩上下文创造函数套一起，返回的是任务上下文结构体，刚好放进t的任务上下
+            t.task_cx = TaskContext::goto_restore(init_app_cx(i));
             t.task_status = TaskStatus::Ready;
         }
 
@@ -85,18 +68,26 @@ lazy_static! {
 }
 
 impl TaskManager {
-    /// Run the first task in task list.
-    ///
-    /// Generally, the first task in task list is an idle task (we call it zero process later).
-    /// But in ch3, we load apps statically, so the first task is a real app.
+    // CPU 第一次从内核态进入用户态。
+    // 只需在内核栈上压入构造好的 Trap 上下文，然后 __restore 即可。
     fn run_first_task(&self) -> ! {
+        // 获取任务表可变部分的一个独占借用（也就是可变借用）给inner
         let mut inner = self.inner.exclusive_access();
+        // 从中取出第一个任务
         let task0 = &mut inner.tasks[0];
+        // 状态设置为正在运行
         task0.task_status = TaskStatus::Running;
+        // 把第一个任务放进下一个要运行的任务中，以供一会儿__switch使用
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+        // 手动清理掉临时变量，因为这个函数没到达底部前就切出去了而且永远不会回来，不能依靠编译器自己清除
         drop(inner);
+        // 因为之前没有任务运行过，所以创建一个空任务上下文，从空任务上下文利用__switch切换到第一个任务
         let mut _unused = TaskContext::zero_init();
-        // before this, we should drop local variables that must be dropped manually
+        // 发起切换，操作系统会以为Trap之前运行的是这个空任务，所以保存现场
+        // 首先会把当前的现场全都压到这个空任务上下文中，之后从第一个任务上下文中还原现场
+        // 第一个任务上下文中目前是我们构造的初始化上下文，s寄存器全是0，sp寄存器在我们构造的Trap上下文的栈顶上，ra是Trap上下文的恢复函数
+        // 调用完__switch后，编译器自动跳到此时的ra，也就进一步开始了Trap上下文的恢复过程。构造的Trap上下文包含全部的寄存器。
+        // 初始的Trap上下文中，sepc是应用本身的入口点，sstatus是U特权级，sp是用户栈底，其余是0。这样Trap恢复后就会换到对应应用的用户栈底，然后从头开始执行应用。
         unsafe {
             __switch(&mut _unused as *mut TaskContext, next_task_cx_ptr);
         }
@@ -152,7 +143,7 @@ impl TaskManager {
     // LAB1: Try to implement your function to update or get task info!
 }
 
-/// Run the first task in task list.
+// 留给main函数调用的接口
 pub fn run_first_task() {
     TASK_MANAGER.run_first_task();
 }
