@@ -94,23 +94,21 @@ impl TaskManager {
         panic!("unreachable in run_first_task!");
     }
 
-    /// Change the status of current `Running` task into `Ready`.
+    // 应用状态设置为挂起
     fn mark_current_suspended(&self) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
         inner.tasks[current].task_status = TaskStatus::Ready;
     }
 
-    /// Change the status of current `Running` task into `Exited`.
+    // 应用状态设置为已结束
     fn mark_current_exited(&self) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
         inner.tasks[current].task_status = TaskStatus::Exited;
     }
 
-    /// Find next task to run and return task id.
-    ///
-    /// In this case, we only return the first `Ready` task in task list.
+    // 寻找下一个挂起的应用，从当前的ID顺延查找
     fn find_next_task(&self) -> Option<usize> {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
@@ -119,10 +117,11 @@ impl TaskManager {
             .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready)
     }
 
-    /// Switch current `Running` task to the task we have found,
-    /// or there is no `Ready` task and we can exit with all applications completed
+    // 切换到下一个任务
     fn run_next_task(&self) {
+        // 先寻找还有没有挂起的任务
         if let Some(next) = self.find_next_task() {
+            // 类似应用首次运行的过程，不过不用创造空任务了
             let mut inner = self.inner.exclusive_access();
             let current = inner.current_task;
             inner.tasks[next].task_status = TaskStatus::Running;
@@ -130,11 +129,11 @@ impl TaskManager {
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
             drop(inner);
-            // before this, we should drop local variables that must be dropped manually
             unsafe {
                 __switch(current_task_cx_ptr, next_task_cx_ptr);
             }
-            // go back to user mode
+
+        // 没有挂起的任务了，全部运行完毕
         } else {
             panic!("All applications completed!");
         }
@@ -148,29 +147,29 @@ pub fn run_first_task() {
     TASK_MANAGER.run_first_task();
 }
 
-/// Switch current `Running` task to the task we have found,
-/// or there is no `Ready` task and we can exit with all applications completed
+// 下面的都是些封装，没有pub，因为是给更下面的那些封装用的
+
 fn run_next_task() {
     TASK_MANAGER.run_next_task();
 }
 
-/// Change the status of current `Running` task into `Ready`.
 fn mark_current_suspended() {
     TASK_MANAGER.mark_current_suspended();
 }
 
-/// Change the status of current `Running` task into `Exited`.
 fn mark_current_exited() {
     TASK_MANAGER.mark_current_exited();
 }
 
-/// Suspend the current 'Running' task and run the next task in task list.
+// 这些是给外界调用的接口
+
+// 当前应用挂起，运行下一个应用
 pub fn suspend_current_and_run_next() {
     mark_current_suspended();
     run_next_task();
 }
 
-/// Exit the current 'Running' task and run the next task in task list.
+// 当前应用退出，运行下一个应用
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();

@@ -55,7 +55,7 @@ pub fn rust_main() -> ! {
     heap_alloc::init_heap(); // 初始化堆？？？为什么现在就有堆了
     trap::init(); // 初始化trap，处理所有的U陷入S
     loader::load_apps(); // 加载应用
-    trap::enable_timer_interrupt(); // 启用时间中断
+    trap::enable_timer_interrupt(); // 启用时间中断，使得 S 特权级时钟中断不会被屏蔽
     timer::set_next_trigger(); //设置第一次中断
     task::run_first_task(); // 运行第一个任务
     panic!("Unreachable in rust_main!");
