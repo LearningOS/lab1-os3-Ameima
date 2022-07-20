@@ -1,11 +1,18 @@
+// 去除std与main
 #![no_std]
 #![no_main]
+
+// 加上 #![feature(panic_info_message)] 才能通过 PanicInfo::message 获取报错信息
 #![feature(panic_info_message)]
+
+// 允许编写动态内存分配失败时的处理函数
 #![feature(alloc_error_handler)]
 
+// 使用log库
 #[macro_use]
 extern crate log;
 
+// 使用alloc库以支持buddy_system_allocator
 extern crate alloc;
 
 #[macro_use]
@@ -22,9 +29,13 @@ mod task;
 mod timer;
 mod trap;
 
+// 内联入口点汇编
 core::arch::global_asm!(include_str!("entry.asm"));
+
+// 内联各个用户态程序
 core::arch::global_asm!(include_str!("link_app.S"));
 
+// 清零bss段
 fn clear_bss() {
     extern "C" {
         fn sbss();
@@ -36,16 +47,16 @@ fn clear_bss() {
     }
 }
 
-#[no_mangle]
+#[no_mangle] // 保留符号，作为rust部分入口函数
 pub fn rust_main() -> ! {
-    clear_bss();
-    logging::init();
+    clear_bss(); // 清零bss
+    logging::init(); // 初始化logger
     println!("[kernel] Hello, world!");
-    heap_alloc::init_heap();
-    trap::init();
-    loader::load_apps();
-    trap::enable_timer_interrupt();
-    timer::set_next_trigger();
-    task::run_first_task();
+    heap_alloc::init_heap(); // 初始化堆？？？为什么现在就有堆了
+    trap::init(); // 初始化trap，处理所有的U陷入S
+    loader::load_apps(); // 加载应用
+    trap::enable_timer_interrupt(); // 启用时间中断，使得 S 特权级时钟中断不会被屏蔽
+    timer::set_next_trigger(); //设置第一次中断
+    task::run_first_task(); // 运行第一个任务
     panic!("Unreachable in rust_main!");
 }
